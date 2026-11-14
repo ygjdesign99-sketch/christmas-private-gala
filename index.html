@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Christmas Private gala</title>
+<meta name="description" content="2026년 크리스마스 프라이빗 갈라 & 연말 사교 컨퍼런스 초대장">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Private gala">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+  /* 레이아웃: 화면 가운데의 가로형 카드 겉면이 스크롤 진행도(--p: 0→1)에 따라 위로 들리고,
+     그 안에서 상세페이지가 화면 전체로 넓어진 뒤 그대로 길게 스크롤된다 */
+  :root {
+    color-scheme: light;
+    --page-bg: #ffffff;        /* 페이지 배경 */
+    --card-cover: #7d8f86;     /* 카드 겉면 (1680×1132 이미지 자리) */
+    --detail: #b9c4cf;         /* 상세페이지 (1680×4800 이미지 자리) */
+    --label: #234435;          /* 안내 문구와 아이콘: 상세 이미지의 녹색 */
+    --font: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+
+    /* 실제 이미지를 넣을 때: none 대신 url("...")로 바꾸면 된다 */
+    --card-img: url("img/card.webp");
+    --detail-img: url("img/detail.webp");
+
+    --p: 0;                                        /* 스크롤 진행도, 스크립트가 갱신 */
+    --vh: 100vh;
+    --page-w: min(100vw, 480px);                   /* 모바일 폭 기준 */
+    --cover-h: calc(var(--page-w) * 1132 / 1680);  /* 카드 겉면 높이 */
+    --start-y: calc((var(--vh) - var(--cover-h)) / 2); /* 닫힌 카드가 화면 가운데 오는 위치 */
+  }
+  @supports (height: 100svh) { :root { --vh: 100svh; } }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--label);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    position: relative;
+    max-width: 480px;
+    margin: 0 auto;
+    overflow-x: clip;
+  }
+
+  /* ---------- 1. 카드 열림 ---------- */
+  .opener { height: calc(var(--vh) + 130vh); }   /* 130vh만큼 스크롤하는 동안 카드가 열린다 */
+
+  .stage {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: var(--vh);
+    background: var(--page-bg);
+    perspective: 1400px;
+    overflow: hidden;
+  }
+
+  /* 카드 전체: 닫혀 있을 때는 화면 가운데, 열리면서 화면 맨 위로 올라간다 */
+  .card {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transform: translateY(calc((1 - var(--p)) * var(--start-y)));
+    will-change: transform;
+  }
+
+  /* 카드 안에서 보이는 상세페이지 윗부분: 처음엔 카드 크기만큼, 열리면서 화면 전체로 */
+  .peek {
+    position: absolute;
+    inset: 0;
+    transform: translateZ(-1px);
+    clip-path: inset(0 0 calc((1 - var(--p)) * (var(--vh) - var(--cover-h))) 0);
+    will-change: clip-path;
+  }
+  /* 겉면이 들리는 동안 드리우는 그림자 */
+  .peek::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: var(--cover-h);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0) 75%);
+    opacity: calc(1 - var(--p) * 1.6);
+    pointer-events: none;
+  }
+
+  /* 겉면: 위쪽 모서리를 축으로 아래쪽이 들려 올라간다. 뒷면은 보이지 않는다 */
+  .cover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    aspect-ratio: 1680 / 1132;
+    background-color: var(--card-cover);
+    background-image: var(--card-img);
+    background-size: 100% 100%;
+    transform-origin: center top;
+    transform: rotateX(calc(var(--p) * 125deg));
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    will-change: transform;
+  }
+
+  .hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: max(28px, env(safe-area-inset-bottom));
+    margin: 0;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: -0.02em;
+    opacity: calc(1 - var(--p) * 8);
+    pointer-events: none;
+  }
+  /* 스크롤 아이콘: 둥근 테두리 안에서 점이 아래로 흘러내린다 */
+  .scroll-icon {
+    position: relative;
+    display: block;
+    width: 24px;
+    height: 38px;
+    margin: 0 auto 10px;
+    border: 1.5px solid currentColor;
+    border-radius: 12px;
+  }
+  .scroll-icon::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 7px;
+    width: 4px;
+    height: 7px;
+    margin-left: -2px;
+    border-radius: 2px;
+    background: currentColor;
+    animation: wheel 1.6s ease-in-out infinite;
+  }
+  @keyframes wheel {
+    0% { transform: translateY(0); opacity: 1; }
+    65% { transform: translateY(14px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-icon::after { animation: none; }
+  }
+
+  /* ---------- 2. 상세페이지 ---------- */
+  /* 상세 이미지 공통: 폭에 맞추고 위에서부터 그린다 (peek과 detail이 같은 그림을 같은 자리에 그린다) */
+  .detail-bg {
+    background-color: var(--detail);
+    background-image: var(--detail-img);
+    background-size: 100% auto;
+    background-position: center top;
+    background-repeat: no-repeat;
+  }
+
+  /* 카드가 다 열린 순간의 화면과 정확히 겹치도록 한 화면만큼 끌어올린다 */
+  .detail {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    aspect-ratio: 1680 / 4800;
+    margin-top: calc(-1 * var(--vh));
+  }
+
+  /* 자리표시 라벨 (실제 이미지를 넣으면 삭제) */
+  .ph {
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .cover.ph { color: #f1f4f2; }
+  .detail-bg.ph { align-items: start; padding-top: calc(var(--cover-h) / 2 - 20px); }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <section class="opener" id="opener" aria-label="초대 카드">
+    <div class="stage" id="stage">
+      <div class="card">
+        <div class="peek detail-bg" aria-hidden="true"></div>
+        <div class="cover" role="img" aria-label="Christmas Private Gala 초대 카드. 12월 24일 목요일 19시, Jade's Private Mansion"></div>
+      </div>
+      <p class="hint"><span class="scroll-icon" aria-hidden="true"></span>스크롤해서 열기</p>
+    </div>
+  </section>
+
+  <section class="detail detail-bg" role="img" aria-label="행사 상세 안내: 드레스 코드, 시간표, 파티 프로그램"></section>
+
+</main>
+
+<script>
+  (function () {
+    var opener = document.getElementById('opener');
+    var stage = document.getElementById('stage');
+    var root = document.documentElement;
+    var ticking = false;
+
+    // 처음과 끝이 부드러운 ease-in-out
+    function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+    function update() {
+      ticking = false;
+      var range = opener.offsetHeight - stage.offsetHeight;
+      var raw = range > 0 ? -opener.getBoundingClientRect().top / range : 1;
+      // 스크롤 구간의 앞 90%에서 다 열린다
+      var t = Math.min(1, Math.max(0, raw / 0.9));
+      root.style.setProperty('--p', ease(t).toFixed(4));
+    }
+
+    function request() {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    }
+
+    window.addEventListener('scroll', request, { passive: true });
+    window.addEventListener('resize', request);
+    update();
+  })();
+
+  // 앱으로 설치하고 오프라인에서도 열 수 있게 서비스 워커를 등록한다 (https 주소에서만 동작)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>
